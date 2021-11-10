@@ -63,6 +63,7 @@ def _plot_linkages(
     path: str,
     multi_mode: bool,
     plot: str,
+    annotations = True,
     auto_open: bool = False,
     **config,
 ):
@@ -356,13 +357,11 @@ def _plotX(
         data1 = data.loc[(filters[f"filter_{_MASTER_INDEX['r']}_from"],
                           _MASTER_INDEX['a'],
                           filters[f"filter_{_MASTER_INDEX['a']}_from"],
-                          filters[f"filter_{_MASTER_INDEX['r']}_to"],
                           slice(None)),
                          :]
         data2 = data.loc[(filters[f"filter_{_MASTER_INDEX['r']}_from"],
                           _MASTER_INDEX['c'],
                           filters[f"filter_{_MASTER_INDEX['c']}_from"],
-                          filters[f"filter_{_MASTER_INDEX['r']}_to"],
                           slice(None)), 
                          :]
         data = data1.append(data2)
@@ -510,7 +509,7 @@ def _plotZYUS(
     data.columns = ['Value']
     
     # Slicing according to filters
-    if matrix in ['Z','z','U','u','S','s']:
+    if matrix in ['Z','z','U','u','S','s','f_dis']:
         data.index.names = [f"{_MASTER_INDEX['r']}_from", 'Level_from', "Item_from", f"{_MASTER_INDEX['r']}_to", 'Level_to', "Item_to", 'Scenario']
         if instance.table_type == 'IOT':
             data = data.loc[(filters[f"filter_{_MASTER_INDEX['r']}_from"],

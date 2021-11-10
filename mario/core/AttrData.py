@@ -60,6 +60,7 @@ from mario.tools.iomath import (
     calc_b,
     calc_F,
     calc_f,
+    calc_f_dis,
     calc_X_from_z,
 )
 
@@ -1121,7 +1122,7 @@ class Database(CoreModel):
 
                 * 'Total' to plot the total linkages
                 * 'Direct' to plot the direct linkages
-
+                
         auto_open : boolean
             if True, opens the plot automatically
 
@@ -2158,7 +2159,7 @@ class Database(CoreModel):
         ### Inputs handling
         item_from = item
         if self.table_type == 'SUT':
-            if item_from == _MASTER_INDEX['s'] and matrix in ['z','Z','U','u','S','s','Y','X']:
+            if item_from == _MASTER_INDEX['s'] and matrix in ['z','Z','U','u','S','s','f_dis','Y','X']:
                 raise WrongInput(f"Please set 'item' as '{_MASTER_INDEX['c']}' or '{_MASTER_INDEX['a']}'")
             if matrix not in ['v','V','E','e','EY','F','M'] and item_from not in [_MASTER_INDEX['c'], _MASTER_INDEX['a']]:
                 raise WrongInput(f"Please set 'item' as '{_MASTER_INDEX['c']}' or '{_MASTER_INDEX['a']}'")
@@ -2220,9 +2221,9 @@ class Database(CoreModel):
             layout['title'] = f"{_MATRICES_NAMES[matrix]} - Variation with respect to '{base_scenario}' scenario"            
         
 
-        if matrix == "X":
+        if matrix in ["X","p"]:
             plot_function = '_plotX'
-        if matrix in ["Z", "z", "Y", "U", "u", "S", "s"]:
+        if matrix in ["Z", "z", "Y", "U", "u", "S", "s", "f_dis"]:
             plot_function = '_plotZYUS'
         if matrix in ["V", "v", "E", "e", "EY", "M", "F"]:
             plot_function = '_plotVEMF'
