@@ -324,6 +324,10 @@ _INDECES = {
             "indices": [_MASTER_INDEX["k"]],
             "columns": [_MASTER_INDEX["r"], "Level", _MASTER_INDEX["s"], "Item"],
         },
+        "f": {
+            "indices": [_MASTER_INDEX["k"]],
+            "columns": [_MASTER_INDEX["r"], "Level", _MASTER_INDEX["s"], "Item"],
+        },
         "f_dis": {
             "indices": [_MASTER_INDEX["r"], "Level", _MASTER_INDEX["s"], "Item"],
             "columns": [_MASTER_INDEX["r"], "Level", _MASTER_INDEX["s"], "Item"],
@@ -457,6 +461,16 @@ _INDECES = {
             "columns": [_MASTER_INDEX["r"], "Level", _MASTER_INDEX["n"]],
         },
         "F": {
+            "indices": [_MASTER_INDEX["k"]],
+            "columns": [
+                _MASTER_INDEX["r"],
+                "Level",
+                _MASTER_INDEX["a"],
+                _MASTER_INDEX["c"],
+                "Item",
+            ],
+        },
+        "f": {
             "indices": [_MASTER_INDEX["k"]],
             "columns": [
                 _MASTER_INDEX["r"],

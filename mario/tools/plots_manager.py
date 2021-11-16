@@ -71,6 +71,25 @@ _NON_ACCEPTABLE_FILTERS = {
             f"filter_{_MASTER_INDEX['k']}".replace(" ", "_"),
         ],
     },
+    "p": {
+        "IOT": [
+            f"filter_{_MASTER_INDEX['a']}".replace(" ", "_"),
+            f"filter_{_MASTER_INDEX['c']}".replace(" ", "_"),
+            f"filter_{_MASTER_INDEX['s']}_to".replace(" ", "_"),
+            f"filter_{_MASTER_INDEX['r']}_to".replace(" ", "_"),
+            f"filter_{_MASTER_INDEX['n']}".replace(" ", "_"),
+            f"filter_{_MASTER_INDEX['f']}".replace(" ", "_"),
+            f"filter_{_MASTER_INDEX['k']}".replace(" ", "_"),
+        ],
+        "SUT": [
+            f"filter_{_MASTER_INDEX['s']}_from".replace(" ", "_"),
+            f"filter_{_MASTER_INDEX['s']}_to".replace(" ", "_"),
+            f"filter_{_MASTER_INDEX['r']}_to".replace(" ", "_"),
+            f"filter_{_MASTER_INDEX['n']}".replace(" ", "_"),
+            f"filter_{_MASTER_INDEX['f']}".replace(" ", "_"),
+            f"filter_{_MASTER_INDEX['k']}".replace(" ", "_"),
+        ],
+    },
     "Z": {
         "IOT": [
             f"filter_{_MASTER_INDEX['a']}".replace(" ", "_"),
@@ -286,6 +305,21 @@ _NON_ACCEPTABLE_FILTERS = {
             f"filter_{_MASTER_INDEX['n']}".replace(" ", "_"),
         ],
     },
+    "f": {
+        "IOT": [
+            f"filter_{_MASTER_INDEX['r']}_from".replace(" ", "_"),
+            f"filter_{_MASTER_INDEX['s']}_from".replace(" ", "_"),
+            f"filter_{_MASTER_INDEX['f']}".replace(" ", "_"),
+            f"filter_{_MASTER_INDEX['n']}".replace(" ", "_"),
+        ],
+        "SUT": [
+            f"filter_{_MASTER_INDEX['r']}_from".replace(" ", "_"),
+            f"filter_{_MASTER_INDEX['s']}_from".replace(" ", "_"),
+            f"filter_{_MASTER_INDEX['s']}_to".replace(" ", "_"),
+            f"filter_{_MASTER_INDEX['f']}".replace(" ", "_"),
+            f"filter_{_MASTER_INDEX['n']}".replace(" ", "_"),
+        ],
+    },
     "EY": {
         "IOT": [
             f"filter_{_MASTER_INDEX['r']}_from".replace(" ", "_"),
@@ -311,7 +345,7 @@ class Color(list):
         if palette:
             self.extend(palette)
         else:
-            self.extend(_PALETTES["mario"])
+            self.extend(_PALETTES["McKinsey"])
 
     def __getitem__(self, i):
 

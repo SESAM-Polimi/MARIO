@@ -392,7 +392,7 @@ def _plotX(
 
     
     # Other input management
-    if animation_frame.capitalize() not in data.columns:
+    if animation_frame != None and animation_frame.capitalize() not in data.columns:
         raise WrongInput(f"'{animation_frame}' not a valid option for 'animation_frame'. Valid options are: {data.columns}")
     
     plot_parameters_to_cap = {'x': x,
@@ -720,7 +720,7 @@ def _plotVEMF(
                              filters[f"filter_{_MASTER_INDEX['a']}_to"]+filters[f"filter_{_MASTER_INDEX['c']}_to"],
                              slice(None)), 
                             :]
-    elif matrix in ['E','e','F']:
+    elif matrix in ['E','e','F','f']:
         data.index.names = [f"{_MASTER_INDEX['k']}", f"{_MASTER_INDEX['r']}_to", 'Level_to', "Item_to", 'Scenario']
         if instance.table_type == 'IOT':
             data = data.loc[(filters[f"filter_{_MASTER_INDEX['k']}".replace(" ","_")],
