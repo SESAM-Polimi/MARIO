@@ -2,8 +2,10 @@
 """
 This module contains all the mario parsers API
 """
-
-from mario import Database
+#%%
+from mario.core.CustomDicts import Matrices
+from mario.core.AttrData import Database
+from mario.core.DyDatabase import DynamicDatabase
 from mario.tools.tableparser import (
     eora_single_region,
     txt_praser,
@@ -15,10 +17,13 @@ from mario.tools.tableparser import (
 )
 
 from mario.log_exc.exceptions import WrongInput, LackOfInput
+#%%
+DATABASES = {
+    "Database": {'func':Database,'args':[],'baseline_name':'baseline','dynamic':False},
+    'Dynamic': {'func': DynamicDatabase,'args':['year'],'dynamic':True}
+}
 
-models = {"Database": Database}
-
-
+#%%
 def parse_from_txt(
     path,
     table,
@@ -68,12 +73,12 @@ def parse_from_txt(
     -------
     mario.Database
     """
-    if model not in models:
-        raise WrongInput("Available models are {}".format([*models]))
+    if model not in DATABASES:
+        raise WrongInput("Available DATABASES are {}".format([*DATABASES]))
 
     matrices, indeces, units = txt_praser(path, table, mode)
 
-    return models[model](
+    return DATABASES[model](
         name=name,
         table=table,
         source=source,
@@ -142,17 +147,20 @@ def parse_from_excel(
     mario.Database
     """
 
-    if model not in models:
-        raise WrongInput("Available models are {}".format([*models]))
 
+    if model not in DATABASES:
+        raise WrongInput("Available DATABASES are {}".format([*DATABASES]))
+
+    _matrices = Matrices(baseline_name=DATABASES[model].get('baseline_name',year),dynamic=DATABASES[model]['dynamic'])
     matrices, indeces, units = excel_parser(path, table, mode, data_sheet, unit_sheet)
+    _matrices[_matrices._bs_name] = matrices['baseline']
 
-    return models[model](
+    return DATABASES[model]['func'](
         name=name,
         table=table,
         source=source,
         year=year,
-        init_by_parsers={"matrices": matrices, "_indeces": indeces, "units": units},
+        init_by_parsers={"matrices": _matrices, "_indeces": indeces, "units": units},
         calc_all=calc_all,
         **kwargs,
     )
@@ -192,14 +200,14 @@ def parse_exiobase_sut(
     mario.Database
     """
 
-    if model not in models:
-        raise WrongInput("Available models are {}".format([*models]))
+    if model not in DATABASES:
+        raise WrongInput("Available DATABASES are {}".format([*DATABASES]))
 
     matrices, indeces, units = monetary_sut_exiobase(
         path,
     )
 
-    return models[model](
+    return DATABASES[model](
         name=name,
         table="SUT",
         source="Exiobase Monetary Multi Regional Supply and Use Table (https://www.exiobase.eu/)",
@@ -252,14 +260,14 @@ def parse_exiobase_3(
     mario.Database
 
     """
-    if model not in models:
-        raise WrongInput("Available models are {}".format([*models]))
+    if model not in DATABASES:
+        raise WrongInput("Available DATABASES are {}".format([*DATABASES]))
 
     if version not in ["3.8.2", "3.8.1"]:
         raise WrongInput("Acceptable versions are {}".format(["3.8.2", "3.8.1"]))
     matrices, indeces, units = exio3(path, version)
 
-    return models[model](
+    return DATABASES[model](
         name=name,
         table="IOT",
         source="Exiobase3",
@@ -323,8 +331,8 @@ def parse_eora(
     -------
     mario.Database
     """
-    if model not in models:
-        raise WrongInput("Available models are {}".format([*models]))
+    if model not in DATABASES:
+        raise WrongInput("Available DATABASES are {}".format([*DATABASES]))
 
     if multi_region:
         if year is None or indeces is None:
@@ -347,7 +355,7 @@ def parse_eora(
             path=path, name_convention=name_convention, aggregate_trade=aggregate_trade
         )
 
-    return models[model](
+    return DATABASES[model](
         name=name,
         table="IOT",
         year=year,
@@ -426,8 +434,8 @@ def parse_eurostat(
     mario.Database
     """
 
-    if model not in models:
-        raise WrongInput("Available models are {}".format([*models]))
+    if model not in DATABASES:
+        raise WrongInput("Available DATABASES are {}".format([*DATABASES]))
 
     table = "SUT"
     if table == "SUT":
@@ -441,7 +449,7 @@ def parse_eurostat(
             imports,
         )
 
-    return models[model](
+    return DATABASES[model](
         name=name,
         table=table,
         source="eurostat",
@@ -450,3 +458,5 @@ def parse_eurostat(
         calc_all=calc_all,
         **kwargs,
     )
+
+# %%

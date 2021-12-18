@@ -14,6 +14,7 @@ from mario.log_exc.logger import log_time
 from mario.core.mariometadata import MARIOMetaData
 from mario.tools.tableparser import dataframe_parser
 
+from mario.tools.aggregation import _aggregator
 
 from mario.tools.utilities import (
     _matrices,
@@ -202,6 +203,9 @@ class CoreModel:
             False if over-write is not allowed (faster)
         """
 
+        if scenario not in self.scenarios:
+            raise WrongInput(f"{scenario} does not exist in the databse")
+
         _OPTIONS = copy.deepcopy(_ALL_MATRICES[self.table_type])
 
         for i in matrices:
@@ -236,7 +240,7 @@ class CoreModel:
                         else:
                             raise DataMissing(
                                 f"MARIO is not able to calculate the {item} becuase of missing data."
-                                " Presence of Y and of the [z,Z] is necessary."
+                                " Presence of Y and one of the [z,Z] are necessary."
                             )
 
                     self.matrices[scenario].update({item: data})
@@ -254,8 +258,10 @@ class CoreModel:
                             f"Trying to calculate dependencies.",
                             "warn",
                         )
-                        self.calc_all(list(error.args), scenario, **kwargs)
-                        self.calc_all([item], scenario, **kwargs)
+                        self.calc_all(
+                            matrices=list(error.args), scenario=scenario, **kwargs
+                        )
+                        self.calc_all(matrices=[item], scenario=scenario, **kwargs)
 
                     else:
                         raise DataMissing(
@@ -321,9 +327,7 @@ class CoreModel:
             self.matrices[scenario][matrix] = value
 
     def clone_scenario(
-        self,
-        scenario,
-        name,
+        self, scenario, name,
     ):
         """Creates a new scenario by cloning an existing scenario
 
@@ -458,11 +462,7 @@ class CoreModel:
         return copy.deepcopy(self._indeces[_LEVELS[self.table_type][index]][level])
 
     def is_balanced(
-        self,
-        method,
-        data_set="baseline",
-        margin=0.05,
-        as_dataframe=False,
+        self, method, data_set="baseline", margin=0.05, as_dataframe=False,
     ):
 
         """Checks if a specific data_set in the database is balance or not
@@ -732,10 +732,15 @@ class CoreModel:
 
     def __str__(self):
 
+        if self.is_dynamic:
+            item = "years"
+        else:
+            item = "scenarios"
+
         to_print = (
             "name = {}\n"
             "table = {}\n"
-            "scenarios = {}\n".format(self.meta.name, self.meta.table, self.scenarios)
+            "{} = {}\n".format(self.meta.name, self.meta.table, item, self.scenarios)
         )
         for item in _LEVELS[self.meta.table]:
             to_print += "{} = {}\n".format(item, len(self.get_index(item)))
@@ -746,11 +751,7 @@ class CoreModel:
         return self.__str__()
 
     def GDP(
-        self,
-        exclude=[],
-        scenario="baseline",
-        total=True,
-        share=False,
+        self, exclude=[], scenario="baseline", total=True, share=False,
     ):
 
         """Return the value of the GDP based scenario.
@@ -812,16 +813,10 @@ class CoreModel:
         )
 
         if total:
-            return GDP.groupby(
-                level=0,
-                sort=False,
-            ).sum()
+            return GDP.groupby(level=0, sort=False,).sum()
 
         if share:
-            region_gdp = GDP.groupby(
-                level=0,
-                sort=False,
-            ).sum()
+            region_gdp = GDP.groupby(level=0, sort=False,).sum()
             share = GDP.div(region_gdp) * 100
             GDP["Share of sector by region"] = share["GDP"]
 
@@ -854,6 +849,258 @@ class CoreModel:
         found = list(filter(r.match, items))
 
         return found
+
+    def get_aggregation_excel(
+        self, path=None, levels="all",
+    ):
+
+        """Generates the Excel file for aggregation of the database
+
+        Parameters
+        ---------
+        path : str
+            path to generate an Excel file for database aggregation. The Excel
+            file has different sheets named by the level to be aggregated.
+
+        levels : str
+            levels to be printed as Excel sheets. If 'all' it will print out all
+            the levels, else different levels should be passed as a list of
+            levels such as ['Region','Sector']
+
+        """
+
+        if levels != "all":
+            # To avoid any issue, in case that levels is a string, return a list instead of str
+            if isinstance(levels, str):
+                levels = [levels]
+
+            difference = set(levels).difference(set(self.sets))
+            if difference:
+
+                raise WrongInput(
+                    "\{}' is/are not an acceptable level/s for the database.\n"
+                    "Acceptable items are \n{}".format(difference, self.sets,)
+                )
+        elif levels == "all":
+            levels = [*_LEVELS[self.meta.table]]
+
+        with pd.ExcelWriter(self._getdir(path, "Excels", "Aggregation.xlsx")) as writer:
+            for level in levels:
+                data = pd.DataFrame(
+                    index=self.get_index(level), columns=["Aggregation"]
+                )
+                data.to_excel(writer, level)
+
+    def read_aggregated_index(
+        self, io, levels="all", ignore_nan=False,
+    ):
+
+        """Reads information over the aggregation of levels without aggregating the data
+
+
+        Parameters
+        ----------
+        io : str, Dict[pd.DataFrame]
+            string definining the path of the Excel file or a dict of different
+            aggregation levels in which the keys are the single level and value
+            is a pd.DataFrame mapping the aggregations.
+
+        levels : str, list
+            if 'all' will intend to read the aggregation info for all the levels
+            otherwise, should be a list of levels to be aggregated such as ['Region','Sector'].
+
+        ignore_nan: boolean
+            if False, will stop the code from running if some of the data
+            in the pd.DataFrame is missed otherwise, will not aggregate the missing
+            items.
+        """
+
+        if levels != "all":
+            # To avoid any issue, in case that levels is a string, return a list instead of str
+            if isinstance(levels, str):
+                levels = [levels]
+
+            for level in levels:
+                if level not in [*_LEVELS[self.meta.table]]:
+                    raise WrongInput(
+                        "'{}' is not an acceptable label for the database.\n"
+                        "Acceptable items are \n{}".format(
+                            level, [*_LEVELS[self.meta.table]]
+                        )
+                    )
+
+        if levels == "all":
+            levels = [*_LEVELS[self.meta.table]]
+
+        indeces = {}
+        for level in levels:
+            if isinstance(io, dict):
+                # Reading the aggregation data from a dict of pd.DataFrames similar to the Excel file
+                index = io[level]
+            else:
+                # Reading the aggregation data from a single Excel file with differetn sheets '''
+
+                index = pd.read_excel(io, sheet_name=level, index_col=0)
+
+            if index.shape[1] > 1:
+                index = index.iloc[:, 0].to_frame()
+
+            if set(index.index.to_list()) != set(self.get_index(level)):
+                missing_items = []
+
+                for item in set(self.get_index(level)):
+                    if item not in index.index.to_list():
+                        missing_items.append(item)
+
+                raise WrongExcelFormat(
+                    "Disaggregated indeces of level '{}' in the Excel file "
+                    "does not match with the original indices of the database.\nMissing items are:\n{}".format(
+                        level, missing_items
+                    )
+                )
+
+            index.columns = ["Aggregation"]
+
+            if index.isnull().values.any():
+                isna = index.isna()
+                nans = isna.loc[isna["Aggregation"] == True].index
+                if ignore_nan:
+
+                    log_time(
+                        logger,
+                        "nan values for the aggregation of {} for following items ignored\n{}".format(
+                            level, list(nans)
+                        ),
+                        "warn",
+                    )
+
+                    index.loc[nans, "Aggregation"] = list(nans)
+                else:
+                    raise DataMissing(
+                        "nan values found for the aggregation of {} for following items."
+                        " if ignore_nan = True, nan items will be ignored and no aggregation on the items will be considered\n {}".format(
+                            level, list(nans)
+                        )
+                    )
+
+            indeces[level] = index
+
+        for level in levels:
+            self._indeces[_LEVELS[self.meta.table][level]]["aggregated"] = indeces[
+                level
+            ]
+
+    def aggregate(
+        self,
+        io,
+        drop=["unused"],
+        levels="all",
+        backup=True,
+        calc_all=True,
+        ignore_nan=False,
+        inplace=True,
+    ):
+
+        """This function is in charge of reading data regarding the aggregation
+           of different levels and aggregate data.
+
+        Parameters
+        ----------
+        io : str, Dict[pd.DataFrame]
+
+            #. in case that the data should be given through an Excel file, represents the path of the Excel file
+            #. in case that the data needs to be given by DataFrame, a dictionary of DataFrames can be give in which the keys are the name of the levels and values are the DataFrames
+
+        drop : str, List[str]
+            representing the items/items that should be droped (only allowed for E and EY matrix)
+
+        levels : str, List[str]
+            #. in case that a single level or 'all' levels should be aggregated, str can be used
+            #. in case that multiple levels should be aggregated, a list of levels should be used
+
+        backup : boolean
+            shows if the user needs to make a backup before aggregating so can
+            reset to previous case.
+
+        calc_all : boolean
+            if True, ['v','z','e'] will be calculated automatically after the
+            aggregation of flows
+
+        ignore_nan : booelan
+            #. if False, will stop the code if finds some nan values in the aggregation dataframes
+            #. if True, will ignore the NaNs and do not aggregated the specific items with NaN values
+
+        inplace : booelan
+            if True will aggrgate the datbase object itself otherwise will return
+            the aggregated object as a new database object
+
+        Returns
+        -------
+        mario.Database :
+            if inplace = False returns a new mario.Database
+        None :
+            if inplace = True implents the changes in place
+
+        """
+
+        # insure of Y,E,V,Z,EY exist
+        self.calc_all(["E", "V", "Z"])
+
+        if not inplace:
+            new = self.copy()
+            new.aggregate(
+                io=io,
+                drop=drop,
+                levels=levels,
+                backup=False,
+                calc_all=calc_all,
+                ignore_nan=ignore_nan,
+                inplace=True,
+            )
+
+            return new
+
+        else:
+            if backup:
+                self.backup()
+
+            if isinstance(drop, str):
+                drop = [drop]
+
+            if io is None:
+                matrices, self.units = _aggregator(self, drop)
+
+            else:
+                self.read_aggregated_index(
+                    levels=levels, io=io, ignore_nan=ignore_nan,
+                )
+                __new_matrices = {}
+
+                __new_matrices, units = _aggregator(self, drop)
+
+            for scenario in self.scenarios:
+                _matrices(self, "del", scenario)
+                self.matrices[scenario] = __new_matrices[scenario]
+                _matrices(self, "add", scenario)
+
+            self.meta._add_history(
+                "original matrices changed to the aggregated level based on the inputs from {}".format(
+                    io
+                )
+            )
+            self.units = units
+
+            old_index = copy.deepcopy(self._indeces)
+            # Now we have to change the indeces too. The one that are aggregated
+            # should switch to main
+            _manage_indeces(self, "aggregation")
+
+            new_index = copy.deepcopy(self._indeces)
+            _meta_parse_history(self, "aggregation", old_index, new_index)
+
+            if calc_all:
+                for scenario in self.scenarios:
+                    self.calc_all(scenario=scenario)
 
     @property
     def scenarios(self):
@@ -994,6 +1241,10 @@ class CoreModel:
         history = "\n".join(self.meta._history[:])
         print(history)
 
+    @property
+    def is_dynamic(self):
+        return self.matrices._dynamic
+
     def __getitem__(self, key):
         """get item method retuns the data regarding the scenarios"""
         self.scenario_exist(key)
@@ -1046,7 +1297,7 @@ class CoreModel:
     def __setstate__(self, value):
         self.__dict__ = value
 
-    def __eq__(self,other):
+    def __eq__(self, other):
         """ Checks the equality if two databases
         """
         main_sets = sorted(self.sets)
@@ -1063,36 +1314,3 @@ class CoreModel:
                 return False
 
         return True
-
-
-    def _extract_index_from_frames(self,_dict):
-        ids = {
-            'r': {'matrix':['z','X','Y','v','e','Z',],"level":('index',0)},
-            's': {'matrix':['z','X','Y','v','e','Z',],"level":('index',-1)},
-            'a': {'matrix':['z','X','Y','v','e','Z',],"level":('index',-1)},
-            'c': {'matrix':['z','X','Y','v','e','Z',],"level":('index',-1)},
-            'n': {'matrix':['Y','EY'],"level":('columns',1)},
-            'k': {'matrix':['e','E','EY'],"level":('index',0)},
-            'f': {'matrix':['v','V','EY'],"level":('index',0)},
-        }
-
-        indeces = {}
-        for key,vals in ids.items():
-            idx = _MASTER_INDEX[key]
-
-            if idx not in self.sets:
-                continue
-
-            for matrix in vals['matrix']:
-                if matrix in _dict:
-                    df = _dict[matrix]
-                    print(idx,matrix)
-                    
-                    if key in ['s','a','c']:
-                        df = df.loc[(slice(None),idx,slice(None)),:]
-                    index = list(getattr(df,vals['level'][0]).unique(vals['level'][1]))
-                    indeces[idx] = index
-                    break
-
-        return indeces
-        

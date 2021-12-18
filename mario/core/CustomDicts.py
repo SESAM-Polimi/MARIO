@@ -14,6 +14,15 @@ class Matrices(UserDict):
         Shows if the database is dynamic or not
     """
     def __init__(self,baseline_name,dynamic=False,vals={}):
+        if baseline_name is None:
+            if dynamic:
+                raise ValueError('A Dynamic database can not be initialized with year=None')
+            else:
+                raise AssertionError('Matrices instantiated uncorrectly.')
+
+        if dynamic:
+            if not isinstance(baseline_name,int):
+                raise ValueError('year for a dynamic database should be an integer number.')
         self._bs_name = baseline_name
         self._dynamic = dynamic
 
@@ -36,6 +45,12 @@ class Matrices(UserDict):
 
         if key == 'baseline':
             key = self._bs_name
+
+        if self._dynamic and isinstance(key,str):
+            try:
+                key = int(key)
+            except: 
+                pass
 
         return super().__getitem__(key)
 
